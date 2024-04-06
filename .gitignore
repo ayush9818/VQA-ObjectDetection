@@ -9,6 +9,7 @@ __pycache__/
 #Dataset
 dataset/
 
+notebooks/yolov8n.pt
 # Distribution / packaging
 .Python
 build/
