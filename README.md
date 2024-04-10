@@ -25,6 +25,8 @@
 4. **Install Dependencies**
 
     ```bash
+    conda install pytorch torchvision torchaudio pytorch-cuda=11.8 -c pytorch -c nvidia
+    conda install chardet
     pip install -r requirements.txt
     ```
     
