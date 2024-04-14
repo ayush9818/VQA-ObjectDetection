@@ -14,15 +14,16 @@ def prepare_annotations(data_df: pd.DataFrame, label2id: dict) -> dict:
         question = row["question"]
         image_id = row["image_id"]
         answer = [ans.strip() for ans in row["answer"].split(",")]
-        answer_count = {}
-        for answer_ in answer:
-            answer_count[answer_] = answer_count.get(answer_, 0) + 1
+        # answer_count = {}
+        # for answer_ in answer:
+        #     answer_count[answer_] = answer_count.get(answer_, 0) + 1
 
         labels = []
         scores = []
-        for answer_ in answer_count:
-            labels.append(label2id[str(answer_)])
-            scores.append(1.0)
+        #for answer_ in answer_count:
+        # Take the first answer
+        labels.append(label2id[str(answer[0])])
+        scores.append(1.0)
 
         annotations_dict = {
             "question": question,

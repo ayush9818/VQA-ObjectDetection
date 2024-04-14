@@ -6,7 +6,8 @@ from transformers import ViltProcessor, ViltForQuestionAnswering
 from torch.utils.data import DataLoader
 
 SUPPORTED_MODELS = ["vilt"]
-SUPPORTED_OPTIMIZERS = ['adam']
+SUPPORTED_OPTIMIZERS = ["adam"]
+
 
 def create_label_mappings(answer_space_path: str) -> dict:
     """Creates id2label and label2id mapping from the answer space"""
@@ -31,7 +32,7 @@ def create_dataset(train_df, eval_df, label2id, id2label, image_dir, processor):
     # Create train and validation dataset
     dataset = {
         mode: VQADataset(
-            annotations=anno[:1000],
+            annotations=anno,
             processor=processor,
             image_dir=image_dir,
             id2label=id2label,
@@ -67,23 +68,55 @@ def create_dataloaders(dataset, processor, batch_size):
     return dataloaders
 
 
-def create_model(model_name, label_mappings):
+def create_model(model_name, label_mappings, pretrained=None):
     if model_name.lower() == "vilt":
         model = ViltForQuestionAnswering.from_pretrained(
-            "dandelin/vilt-b32-mlm", id2label=label_mappings['id2label'], label2id=label_mappings['label2id']
+            "dandelin/vilt-b32-mlm",
+            id2label=label_mappings["id2label"],
+            label2id=label_mappings["label2id"],
         )
+
+        if pretrained is not None and os.path.exists(pretrained):
+            logger.info("Loading Pretrained Model")
+            state_dict = torch.load(pretrained)
+            logger.info(
+                f"Pretrained Model => Accuracy : {state_dict['best_epoch_acc']} Epoch : {state_dict['best_epoch']}"
+            )
+            model.load_state_dict(state_dict['state_dict'])
+            logger.info("Model Loaded Successfully")
+        else:
+            logger.info("Pretrained Model Path is None or not found")
+
     else:
         raise ValueError(
             f"{model_name} not supported. Supported Models are {SUPPORTED_MODELS}"
         )
     return model
 
+
 def get_optimizer(optimizer_name, model, learning_rate):
     # TODO : Make the function more generic
-    if optimizer_name.lower() == 'adam':
-        optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate) 
+    if optimizer_name.lower() == "adam":
+        optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
     else:
         raise ValueError(
             f"{optimizer_name} not supported. Supported optimizers are {SUPPORTED_OPTIMIZERS}"
         )
     return optimizer
+
+
+def save_model(
+    model, optimizer, epoch_loss, epoch_acc, epoch, label_mappings, save_dir
+):
+    save_dict = {
+        "state_dict": model.state_dict(),
+        "optimizer": optimizer.state_dict(),
+        "best_epoch": epoch,
+        "best_epoch_loss": epoch_loss,
+        "best_epoch_acc": epoch_acc,
+        "label2id": label_mappings["label2id"],
+        "id2label": label_mappings["id2label"],
+    }
+
+    model_name = f"model_state_{epoch}.pth"
+    torch.save(save_dict, os.path.join(save_dir, model_name))

@@ -4,3 +4,4 @@ matplotlib==3.8.4
 ultralytics==8.1.43
 transformers==4.39.3
 loguru
+scikit-learn==1.4.2
