@@ -8,7 +8,7 @@ __pycache__/
 
 #Dataset
 dataset/
-
+runs/
 notebooks/yolov8n.pt
 # Distribution / packaging
 .Python

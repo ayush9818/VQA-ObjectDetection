@@ -30,3 +30,8 @@
     pip install -r requirements.txt
     ```
     
+## Experiments
+
+| Model  | Epochs| Batch Size| Lr  | Optimizer| Train Accuracy| Test Accuracy|
+| -------|-------|-----------|-----|----------|---------------|--------------|
+| VILT   | 39    | 128       | 5e-5| Adam     | 99%          | 86%
