@@ -1,51 +1,97 @@
+import warnings
+
+warnings.filterwarnings("ignore")
+
 import os
 import pandas as pd
-import matplotlib.pyplot as plt
-import cv2
+import torch
+from PIL import Image
 
-class VQADataset:
-    def __init__(self, cfg, type_='train'):
-        assert type_ in ('train', 'eval'), f"Two type_ are supported train and eval"
 
-        if type_ == "train":
-            self.data = pd.read_csv(os.path.join(cfg.data_dir, cfg.train_file))
-        else:
-            self.data = pd.read_csv(os.path.join(cfg.data_dir, cfg.eval_file))
+def prepare_annotations(data_df: pd.DataFrame, label2id: dict) -> dict:
+    annotations = []
+    for idx, row in data_df.iterrows():
+        question = row["question"]
+        image_id = row["image_id"]
+        answer = [ans.strip() for ans in row["answer"].split(",")]
+        # answer_count = {}
+        # for answer_ in answer:
+        #     answer_count[answer_] = answer_count.get(answer_, 0) + 1
 
-        self.image_dir = cfg.image_dir
-        self.image_list = os.listdir(self.image_dir)
+        labels = []
+        scores = []
+        #for answer_ in answer_count:
+        # Take the first answer
+        labels.append(label2id[str(answer[0])])
+        scores.append(1.0)
 
-        print(f"Dataset Size : {self.data.shape[0]}")
+        annotations_dict = {
+            "question": question,
+            "image_id": image_id,
+            "answer": answer,
+            "labels": labels,
+            "scores": scores,
+        }
+        annotations.append(annotations_dict)
+    return annotations
 
-    def fetch_data(self, idx):
-        assert idx in self.data.index, f"idx value out of bounds"
-        row = self.data.iloc[idx]
-        
-        ques = row['question']
-        ans = row['answer']
-        image_id = f"{row['image_id']}.png"
 
-        if image_id not in self.image_list:
-            raise ValueError(f"{image_id} not present in image dir")
+class VQADataset(torch.utils.data.Dataset):
+    """VQA (v2) dataset."""
 
-        image_path = os.path.join(self.image_dir, image_id)
-        return {"question" : ques, "answer" : ans, "image_path" : image_path}
-        
+    def __init__(self, annotations, processor, image_dir, id2label):
+        self.annotations = annotations
+        self.processor = processor
+        self.image_dir = image_dir
+        self.id2label = id2label
 
-    def display(self, idx):
-        assert idx in self.data.index, f"idx value out of bounds"
-        row = self.data.iloc[idx]
-        
-        ques = row['question']
-        ans = row['answer']
-        image_id = f"{row['image_id']}.png"
+    def __len__(self):
+        return len(self.annotations)
 
-        if image_id not in self.image_list:
-            raise ValueError(f"{image_id} not present in image dir")
+    def __getitem__(self, idx):
+        # get image + text
+        annotation = self.annotations[idx]
+        image_id = annotation["image_id"]
+        image = Image.open(os.path.join(self.image_dir, f"{image_id}.png"))
+        text = annotation["question"]
 
-        image_path = os.path.join(self.image_dir, image_id)
-        image = cv2.imread(image_path)
+        encoding = self.processor(
+            image, text, padding="max_length", truncation=True, return_tensors="pt"
+        )
+        # remove batch dimension
+        for k, v in encoding.items():
+            encoding[k] = v.squeeze()
+        # add labels
+        labels = annotation["labels"]
+        scores = annotation["scores"]
+        # based on: https://github.com/dandelin/ViLT/blob/762fd3975c180db6fc88f577cf39549983fa373a/vilt/modules/objectives.py#L301
+        targets = torch.zeros(len(self.id2label))
+        for label, score in zip(labels, scores):
+            targets[label] = score
+        encoding["labels"] = targets
+        return encoding
 
-        plt.figure(figsize=(10,20))
-        plt.title(f"Question : {ques}\nAnswer : {ans}")
-        plt.imshow(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
+
+def collate_fn(batch, processor):
+    input_ids = [item["input_ids"] for item in batch]
+    pixel_values = [item["pixel_values"] for item in batch]
+    attention_mask = [item["attention_mask"] for item in batch]
+    token_type_ids = [item["token_type_ids"] for item in batch]
+    labels = [item["labels"] for item in batch]
+
+    # create padded pixel values and corresponding pixel mask
+    encoding = processor.image_processor.pad(pixel_values, return_tensors="pt")
+
+    # create new batch
+    batch = {}
+    batch["input_ids"] = torch.stack(input_ids)
+    batch["attention_mask"] = torch.stack(attention_mask)
+    batch["token_type_ids"] = torch.stack(token_type_ids)
+    batch["pixel_values"] = encoding["pixel_values"]
+    batch["pixel_mask"] = encoding["pixel_mask"]
+    batch["labels"] = torch.stack(labels)
+
+    return batch
+
+
+# lambda batch: my_collate(batch, arg="myarg")

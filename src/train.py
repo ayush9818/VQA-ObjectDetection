@@ -25,7 +25,7 @@ def parse_arguments():
     parser.add_argument("--eval-file", type=str, default="data_eval.csv")
     parser.add_argument("--answer-space", type=str, default="answer_space.txt")
     parser.add_argument("--model-name", type=str, default="vilt")
-    parser.add_argument("--save-dir", type=str, default="runs")
+    parser.add_argument("--save-dir", type=str, default="../runs")
     parser.add_argument("--pretrained-model-path", type=str, default=None)
 
     # Training Params
@@ -104,7 +104,7 @@ if __name__ == "__main__":
     for path in [image_dir, train_file, eval_file, answer_space_file]:
         assert os.path.exists(path), f"{path} not found"
 
-    save_dir = os.path.join(cfg.base_dir, cfg.save_dir)
+    save_dir = cfg.save_dir
     os.makedirs(save_dir, exist_ok=True)
     existing_runs = os.listdir(save_dir)
     if len(existing_runs) == 0:
