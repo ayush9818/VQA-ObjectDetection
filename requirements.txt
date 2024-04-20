@@ -5,3 +5,4 @@ ultralytics==8.1.43
 transformers==4.39.3
 loguru
 scikit-learn==1.4.2
+git+https://github.com/openai/CLIP.git
