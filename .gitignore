@@ -8,6 +8,7 @@ __pycache__/
 
 #Dataset
 dataset/
+vizviz/
 runs/
 notebooks/yolov8n.pt
 # Distribution / packaging

@@ -6,7 +6,7 @@ from transformers import ViltProcessor, ViltForQuestionAnswering
 from torch.utils.data import DataLoader
 
 SUPPORTED_MODELS = ["vilt"]
-SUPPORTED_OPTIMIZERS = ["adam"]
+SUPPORTED_OPTIMIZERS = ["adam", "rmsprop"]
 
 
 def create_label_mappings(answer_space_path: str) -> dict:
@@ -68,7 +68,7 @@ def create_dataloaders(dataset, processor, batch_size):
     return dataloaders
 
 
-def create_model(model_name, label_mappings, pretrained=None):
+def create_model(model_name, freeze_layers, freeze_embeddings, label_mappings, pretrained=None):
     if model_name.lower() == "vilt":
         model = ViltForQuestionAnswering.from_pretrained(
             "dandelin/vilt-b32-mlm",
@@ -87,6 +87,15 @@ def create_model(model_name, label_mappings, pretrained=None):
         else:
             logger.info("Pretrained Model Path is None or not found")
 
+        if freeze_embeddings > 0:
+            logger.info("Freezing Embedding Layers")
+            for param in model.vilt.embeddings.parameters():
+                param.requires_grad = False 
+
+        logger.info(f"Freezing {freeze_layers} Layers")
+        for layer in model.vilt.encoder.layer[:freeze_layers]:
+            for param in layer.parameters():
+                param.requires_grad = False 
     else:
         raise ValueError(
             f"{model_name} not supported. Supported Models are {SUPPORTED_MODELS}"
@@ -98,6 +107,8 @@ def get_optimizer(optimizer_name, model, learning_rate):
     # TODO : Make the function more generic
     if optimizer_name.lower() == "adam":
         optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
+    elif optimizer_name.lower() == "rmsprop":
+        optimizer = torch.optim.Rprop(model.parameters(), lr=learning_rate)
     else:
         raise ValueError(
             f"{optimizer_name} not supported. Supported optimizers are {SUPPORTED_OPTIMIZERS}"

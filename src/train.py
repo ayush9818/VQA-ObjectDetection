@@ -14,8 +14,9 @@ import pandas as pd
 from loguru import logger
 from tqdm import tqdm
 from metrics import MetricComputer
+from eval import eval
 
-torch.manual_seed(1234)
+#torch.manual_seed(1234)
 
 def parse_arguments():
     parser = argparse.ArgumentParser()
@@ -33,62 +34,75 @@ def parse_arguments():
     parser.add_argument("--lr", type=float, default=5e-5)
     parser.add_argument("--batch-size", type=int, default=4)
     parser.add_argument("--optimizer", type=str, default="adam")
+    parser.add_argument("--freeze-layers", type=int, default=0)
+    parser.add_argument("--device", type=str, default="cuda:0")
+    parser.add_argument("--freeze-embeddings", type=int, default=0)
     args = parser.parse_args()
     return args
 
 
-def train(cfg, dataloaders,label_mappings, save_dir):
+def train_one_epoch(model, optimizer, device, loader):
+    epoch_loss = 0.0
+    total_samples = 0  
+    epoch_corrects = 0
+    model.train()
+    metric_computer  = MetricComputer()
+    for batch in tqdm(loader):
+        # get the inputs;
+        batch = {k:v.to(device) for k,v in batch.items()}
+        total_samples += batch['input_ids'].size(0)
+        # zero the parameter gradients
+        optimizer.zero_grad()
+
+        # forward + backward + optimize
+        outputs = model(**batch)
+        loss = outputs.loss
+        loss.backward()
+        optimizer.step()
+        epoch_loss+=loss.item()
+        labels = batch['labels']
+        logits = outputs.logits
+        epoch_corrects+= metric_computer.calculate_correct_preds(labels=labels, logits=logits)
+    epoch_loss = epoch_loss / total_samples
+    epoch_acc = round(float((epoch_corrects / total_samples)) * 100,4)
+    return model, optimizer, epoch_loss, epoch_acc
+
+
+def main(cfg, dataloaders,label_mappings, save_dir):
     pretrained_model_path = cfg.pretrained_model_path
-    model = create_model(model_name=cfg.model_name, label_mappings=label_mappings, pretrained=pretrained_model_path)
+    model = create_model(model_name=cfg.model_name, 
+                        freeze_layers=cfg.freeze_layers,
+                        freeze_embeddings=cfg.freeze_embeddings,
+                        label_mappings=label_mappings, 
+                        pretrained=pretrained_model_path)
+    
+    logger.info(f"Optimizer : {cfg.optimizer} Learning Rate : {cfg.lr} Batch Size : {cfg.batch_size}")
     optimizer = get_optimizer(optimizer_name=cfg.optimizer, model=model, learning_rate=cfg.lr)
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = torch.device(cfg.device if torch.cuda.is_available() else "cpu")
     logger.info(f"Device : {device}")
     model.to(device)
-
-    metric_computer  = MetricComputer()
     #eval_metrics = MetricComputer(total_samples=len(datasets['eval']))
 
     num_epochs = cfg.num_epochs
-    best_loss, best_acc , best_epoch = float('inf'), 0, 0
+    best_acc = 0.0
     logger.info(f"Total Epochs : {num_epochs}")
     for epoch in range(num_epochs):  # loop over the dataset multiple times
-        epoch_loss = 0.0
-        total_samples = 0  
-        epoch_corrects = 0
-        for phase in ['train', 'eval']:
-            loader = dataloaders[phase]
-            if phase == 'train':
-                model.train()
-            else:
-                model.eval()
-            for batch in tqdm(loader):
-                # get the inputs;
-                batch = {k:v.to(device) for k,v in batch.items()}
-                total_samples += batch['input_ids'].size(0)
-                # zero the parameter gradients
-                optimizer.zero_grad()
+        model, optimizer, train_loss, train_acc = train_one_epoch(model=model, 
+                                                                  optimizer=optimizer,
+                                                                  device=device,
+                                                                  loader=dataloaders['train'])
 
-                # forward + backward + optimize
-                outputs = model(**batch)
-                loss = outputs.loss
-                if phase == 'train':
-                    loss.backward()
-                    optimizer.step()
-                epoch_loss+=loss.item()
-                labels = batch['labels']
-                logits = outputs.logits
-                epoch_corrects+= metric_computer.calculate_correct_preds(labels=labels, logits=logits)
-            
-            epoch_loss = epoch_loss / total_samples
-            epoch_acc = round(float((epoch_corrects / total_samples)) * 100,4)
-            logger.info(f"Epoch : {epoch} Phase : {phase} Loss : {epoch_loss} Accuracy : {epoch_acc}")
-            if phase == 'eval' and epoch_acc > best_acc:
-                best_loss = epoch_loss
-                best_epoch = epoch 
-                best_acc = epoch_acc
-                save_model(model, optimizer, epoch_loss, epoch_acc, epoch, label_mappings, save_dir)
-                logger.info("Model Saved")
+        logger.info(f"Epoch : {epoch}, Phase : Train,  Loss : {train_loss} Accuracy : {train_acc}")
+
+
+        model, test_loss, test_acc = eval(model=model, loader=dataloaders['eval'], device=device)
+
+        logger.info(f"Epoch : {epoch}, Phase : Test,  Loss : {test_loss} Accuracy : {test_acc}")
+        if test_acc > best_acc:
+            best_acc = test_acc 
+            save_model(model, optimizer, test_loss, test_acc, epoch, label_mappings, save_dir)
+            logger.info("Model Saved")
 
 
 if __name__ == "__main__":
@@ -144,4 +158,4 @@ if __name__ == "__main__":
         dataset=dataset, processor=processor, batch_size=cfg.batch_size
     )
 
-    train(cfg, dataloaders, mapping, run_dir)
+    main(cfg, dataloaders, mapping, run_dir)

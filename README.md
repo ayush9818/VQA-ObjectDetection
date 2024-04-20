@@ -32,6 +32,7 @@
     
 ## Experiments
 
-| Model  | Epochs| Batch Size| Lr  | Optimizer| Train Accuracy| Test Accuracy|
-| -------|-------|-----------|-----|----------|---------------|--------------|
-| VILT   | 39    | 128       | 5e-5| Adam     | 99%          | 86%
+| Model  | Epochs| Batch Size| Lr  | Optimizer|Freeze Layers| Train Accuracy| Test Accuracy|
+| -------|-------|-----------|-----|----------|-------------|---------------|--------------|
+| VILT   | 50    | 128       | 5e-5| Adam     |     0       |98.14%          | 33.83%     |
+| VILT   | 40    | 256       | 2e-3| Adam     |     5       |         |     |
