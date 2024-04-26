@@ -129,6 +129,7 @@ def main(cfg):
     val_ans_acc_history = []
     val_ans_loss_history = []
     logger.info("Starting Training")
+    logger.info(f"Batch Size : {cfg.batch_size}, Learning Rate : {cfg.lr}")
     counter = 0
     best_val_loss = float('inf')
     for epoch in range(cfg.num_epochs):
@@ -164,7 +165,7 @@ def main(cfg):
         logger.info(f"{int(np.round(epoch_time))}s {avg_step_time*1e3:.4f}ms/step - loss: {train_loss:.4f} - accuracy: {train_acc*100:.4f}% - val_loss: {val_loss:.4f} - val_accuracy: {val_acc*100:.4f}% - lr: {optimizer.param_groups[0]['lr']}")
         
         lr_scheduler.step(val_loss)
-        logger.info()
+        print()
 
     history = {
         "train_acc" : train_ans_acc_history,

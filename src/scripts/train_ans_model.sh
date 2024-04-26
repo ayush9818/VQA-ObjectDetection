@@ -6,9 +6,12 @@ train_file_path=/nfs/home/scg1143/MLDS/Quarter3/DeepLearning/Project/VQA-ObjectD
 val_file_path=/nfs/home/scg1143/MLDS/Quarter3/DeepLearning/Project/VQA-ObjectDetection/vizviz/vqa/eval_df.csv
 save_dir=/nfs/home/scg1143/MLDS/Quarter3/DeepLearning/Project/VQA-ObjectDetection/runs/ans_model
 
-num_epochs=1
-learning_rate=0.0001
-batch_size=64
+# num_epochs=40
+# learning_rate=0.0001
+# batch_size=32
+num_epochs=30
+learning_rate=0.002
+batch_size=32
 
 
 python answerability_detection/train.py \
