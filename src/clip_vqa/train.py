@@ -6,7 +6,7 @@ import pandas as pd
 from loguru import logger 
 import yaml
 import sys 
-from network import VQAModel
+from network import VQAModel, VQAModelV2, VQAModelV3
 from dataset import VizWizDataset
 from torch.utils.data import DataLoader
 from sklearn.preprocessing import OrdinalEncoder
@@ -101,7 +101,7 @@ def main(model_config, data_config):
 
     device = torch.device(model_config.device if torch.cuda.is_available() else 'cpu')
 
-    model_vqa = VQAModel(model_config.input_dim, model_config.hidden_dim, output_dim).to(device)
+    model_vqa = VQAModelV3(model_config.input_dim, model_config.hidden_dim, output_dim).to(device)
 
     criterion = nn.CrossEntropyLoss()
     optimizer, lr_scheduler = get_optimizer(model_config, model_vqa)

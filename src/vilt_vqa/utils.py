@@ -1,12 +1,13 @@
 import torch
 import os
 from loguru import logger
-from dataset import VQADataset, prepare_annotations, collate_fn
 from transformers import ViltProcessor, ViltForQuestionAnswering
 from torch.utils.data import DataLoader
+import torch
+from torch import optim, nn
 
 SUPPORTED_MODELS = ["vilt"]
-SUPPORTED_OPTIMIZERS = ["adam", "rmsprop"]
+SUPPORTED_OPTIMIZERS = ["adam", "sgd"]
 
 
 def create_label_mappings(answer_space_path: str) -> dict:
@@ -103,17 +104,23 @@ def create_model(model_name, freeze_layers, freeze_embeddings, label_mappings, p
     return model
 
 
-def get_optimizer(optimizer_name, model, learning_rate):
-    # TODO : Make the function more generic
-    if optimizer_name.lower() == "adam":
-        optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
-    elif optimizer_name.lower() == "rmsprop":
-        optimizer = torch.optim.Rprop(model.parameters(), lr=learning_rate)
+def get_optimizer(model, cfg):
+    if cfg.optimizer.lower() == "adam":
+        optimizer = torch.optim.AdamW(model.parameters(), lr=cfg.learning_rate)
+        lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, 
+                                                            factor=0.3, 
+                                                            patience=cfg.lr_patience,
+                                                            verbose=True)
+    elif cfg.optimizer.lower() == "sgd":
+        optimizer = torch.optim.SGD(model.parameters(), lr=cfg.learning_rate, momentum=cfg.momentum)
+        lr_scheduler = optim.lr_scheduler.CyclicLR(optimizer=optimizer, 
+                                                   base_lr=cfg.base_lr,
+                                                   max_lr=cfg.learning_rate)
     else:
         raise ValueError(
-            f"{optimizer_name} not supported. Supported optimizers are {SUPPORTED_OPTIMIZERS}"
+            f"{cfg.optimizer} not supported. Supported optimizers are {SUPPORTED_OPTIMIZERS}"
         )
-    return optimizer
+    return optimizer, lr_scheduler
 
 
 def save_model(
@@ -131,3 +138,39 @@ def save_model(
 
     model_name = f"model_state_{epoch}.pth"
     torch.save(save_dict, os.path.join(save_dir, model_name))
+
+
+
+class EarlyStopping:
+
+    def __init__(self, patience, model_save_path, min_delta=0):
+        self.patience = patience
+        self.min_delta = min_delta
+        self.model_save_path = model_save_path
+        self.counter = 0
+        self.min_validation_loss = np.inf
+        self.best_epoch = 0
+        self.early_stop = False
+
+
+    def __call__(self, epoch, model, validation_loss):
+        delta_loss = self.min_validation_loss - validation_loss
+        # Check if val loss is smaller than min loss
+        if delta_loss > self.min_delta:
+            self.min_validation_loss = validation_loss
+            self.counter = 0
+            # Save best model
+            self.best_epoch = epoch
+            torch.save(model.state_dict(), self.model_save_path)
+        else:
+            self.counter += 1
+            if self.counter >= self.patience:
+                print(f"Early Stopping.")
+                print(f"Save best model at epoch {self.best_epoch}")
+                self.early_stop = True
+
+
+class Config:
+    def __init__(self, config):
+        for key,value in config.items():
+            setattr(self, key, value)

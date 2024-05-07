@@ -1,0 +1,13 @@
+classmapping_dir : /nfs/home/scg1143/MLDS/Quarter3/DeepLearning/Project/VQA-ObjectDetection/vizviz/vqa/class_mapping.csv
+train_data_path : /nfs/home/scg1143/MLDS/Quarter3/DeepLearning/Project/VQA-ObjectDetection/vizviz/vqa/train_df_RN50.json
+val_data_path : /nfs/home/scg1143/MLDS/Quarter3/DeepLearning/Project/VQA-ObjectDetection/vizviz/vqa/val_df_RN50.json
+device: cuda:1
+lr_patience: 3
+learning_rate: 0.005
+base_lr : 0.0001
+momentum: 0.9
+optimizer: adam
+save_dir: /nfs/home/scg1143/MLDS/Quarter3/DeepLearning/Project/VQA-ObjectDetection/runs/vilt_vqa
+model_name: vilt_vqa_full
+batch_size: 160
+num_epochs: 30
