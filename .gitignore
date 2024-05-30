@@ -6,6 +6,8 @@ __pycache__/
 # C extensions
 *.so
 
+webUI/model_store
+
 #Dataset
 dataset/
 vizviz/

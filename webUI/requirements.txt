@@ -1,0 +1,16 @@
+pandas==2.2.1
+opencv-python==4.9.0.80
+matplotlib==3.8.4
+ultralytics==8.1.43
+transformers==4.39.3
+loguru
+scikit-learn==1.4.2
+streamlit==1.30.0
+audio_recorder_streamlit
+streamlit-float
+transformers
+pydub
+librosa
+scipy
+ultralytics
+git+https://github.com/openai/CLIP.git
