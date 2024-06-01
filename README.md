@@ -29,9 +29,3 @@
     conda install chardet
     pip install -r requirements.txt
     ```
-
-
-
-- First set of experiments include known classes in both train and test set 
-    
-## Experiments
